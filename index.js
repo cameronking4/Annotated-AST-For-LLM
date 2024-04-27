@@ -4,16 +4,14 @@ const babel = require("@babel/core");
 const postcss = require("postcss");
 const htmlparser2 = require("htmlparser2");
 const marked = require("marked");
-const {OpenAI} = require('openai');
+const axios = require('axios');
+const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
 dotenv.config();
 
+// Babel configuration for parsing JavaScript/TypeScript
 const babelConfig = {
-    presets: [
-        "@babel/preset-env",
-        "@babel/preset-react",
-        "@babel/preset-typescript"
-    ],
+    presets: ["@babel/preset-env", "@babel/preset-react", "@babel/preset-typescript"],
     plugins: [
         "@babel/plugin-syntax-dynamic-import",
         "@babel/plugin-proposal-class-properties",
@@ -23,96 +21,115 @@ const babelConfig = {
     ]
 };
 
+// Credentials from environment variables
 const OA_API_KEY = process.env.OPENAI_API_KEY;
-const RATE_LIMIT_WINDOW_MS = 1000; // Adjust this based on actual rate limits
-let lastApiCallTime = 0;
-console.log(`OpenAI API key: ${OA_API_KEY}`);
+const GITHUB_PAT = process.env.GITHUB_PAT;
 
-async function summarizeFileOpenAI(filename, file) {
-    const openai = new OpenAI({apiKey: OA_API_KEY});
+// Set up axios for GitHub API authentication
+axios.defaults.headers.common['Authorization'] = `Bearer ${GITHUB_PAT}`;
+
+// Rate limiting setup
+const RATE_LIMIT_WINDOW_MS = 1000;
+let lastApiCallTime = 0;
+
+// OpenAI setup
+const openai = new OpenAI({ apiKey: OA_API_KEY });
+
+async function summarizeFileOpenAI(filename, fileContent) {
     const currentTime = Date.now();
     if (currentTime - lastApiCallTime < RATE_LIMIT_WINDOW_MS) {
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_WINDOW_MS - (currentTime - lastApiCallTime)));
     }
     lastApiCallTime = Date.now();
-    try{ 
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: "system", content: "You are a helpful repo assistant. Be concise but insightful." }, { role: "user", content: `Summarize the code for this file (${filename}) and its purpose. What functions and UI elements are written here? : ${file}. Respond in less than 250 words.` }],
-      model: "gpt-4",
-    });
-    const summary = completion.choices[0].message.content;
-    console.log(summary);
-    return summary;
-    } catch (error) {
-    console.error(`Error summarizing file ${filename} using OpenAI: ${error}`);
-    return `Error summarizing file: ${error.message}`;
-    }
-}
-
-async function callDummyAPI(filename, sourceCode) {
-    console.log('Summarizing file: ', filename)
-    const summary = await summarizeFileOpenAI(filename, sourceCode);
-    return Promise.resolve(`Summary for ${filename} : ${summary}`);
-}
-
-async function generateAST(directory) {
-    const files = getFiles(directory);
-    const asts = [];
-
-    for (const file of files) {
-        const code = fs.readFileSync(file, 'utf8');
-        let ast, summary;
-        try {
-            if (file.endsWith('.js') || file.endsWith('.jsx') || file.endsWith('.ts') || file.endsWith('.tsx')) {
-                ast = await babel.parseAsync(code, {
-                    ...babelConfig,
-                    filename: file
-                });
-            } else if (file.endsWith('.json')) {
-                ast = parseJSON(file, code);
-            } else if (file.endsWith('.html')) {
-                ast = htmlparser2.parseDocument(code);
-            } else if (file.endsWith('.css')) {
-                ast = postcss.parse(code);
-            } else if (file.endsWith('.md')) {
-                const html = marked(code);
-                ast = htmlparser2.parseDocument(html);
-            } else {
-                console.log(`Skipping unsupported file type: ${file}`);
-                continue;  // Skip unsupported files
-            }
-        } catch (error) {
-            console.error(`Error processing ${file}: ${error}`);
-            asts.push({
-                file: file,
-                type: getFileType(file),
-                error: error.message,
-                sourceCode: code
-            });
-            continue;  // Continue processing the next file on error
-        }
-
-        try {
-            // Ensure that the summary is awaited before pushing to asts
-            summary = await callDummyAPI(file, code);
-        } catch (error) {
-            console.error(`Error generating summary for ${file}: ${error}`);
-            summary = `Error generating summary: ${error.message}`;
-        }
-
-        // Push the result to the asts array, ensuring that summary is properly handled
-        asts.push({
-            file: file,
-            type: getFileType(file),
-            ast: ast,
-            summary: summary, // Directly use the resolved summary
-            sourceCode: code
+    try {
+        const completion = await openai.chat.completions.create({
+            messages: [{ role: "system", content: "You are a helpful repo assistant. Be concise but insightful." }, 
+                       { role: "user", content: `Summarize the code for this file (${filename}) and its purpose. What functions and UI elements are written here? : ${fileContent}. Assume explanation for the common web developer.` }],
+            model: "gpt-4",
+            max_tokens: 175,
         });
+        const summary = completion.choices[0].message.content;
+        console.log(summary);
+        return summary;
+    } catch (error) {
+        console.error(`Error summarizing file ${filename} using OpenAI: ${error}`);
+        return `Error summarizing file: ${error.message}`;
     }
-
-    return asts;
 }
 
+async function generateAST(file, content) {
+    let ast;
+    try {
+        const fileType = getFileType(file);
+        switch (fileType) {
+            case "JavaScript/TypeScript":
+                ast = await babel.parseAsync(content, {...babelConfig, filename: file});
+                break;
+            case "JSON":
+                ast = parseJSON(content);
+                break;
+            case "HTML":
+                ast = htmlparser2.parseDocument(content);
+                break;
+            case "CSS":
+                ast = postcss.parse(content);
+                break;
+            case "Markdown":
+                const htmlFromMarkdown = marked(content);
+                ast = htmlparser2.parseDocument(htmlFromMarkdown);
+                break;
+            default:
+                console.log(`Skipping unsupported file type: ${file}`);
+                return null; // Skip unsupported files
+        }
+    } catch (error) {
+        console.error(`Error processing ${file}: ${error}`);
+        return null;
+    }
+    return ast;
+}
+
+function getFileType(file) {
+    const ext = path.extname(file).toLowerCase();
+    switch (ext) {
+        case '.js':
+        case '.jsx':
+        case '.ts':
+        case '.tsx':
+            return "JavaScript/TypeScript";
+        case '.json':
+            return "JSON";
+        case '.html':
+            return "HTML";
+        case '.css':
+            return "CSS";
+        case '.md':
+            return "Markdown";
+        // Add common video file extensions here
+        case '.mp4':
+        case '.avi':
+        case '.mov':
+        case '.wmv':
+        case '.gif':
+        case '.png':
+        case '.jpg':
+        case '.jpeg':
+        case '.tiff':
+        case '.svg':
+        case '.bmp':
+        case '.webp':
+        case '.ico':
+        case '.webm':
+        case '.mov':
+        case '.ttf':
+        case '.otf':
+        case '.woff':
+        case '.woff2':
+            return "Media";
+        default:
+            return "Unknown";
+    }
+}
 
 function parseJSON(file, code) {
     try {
@@ -147,42 +164,42 @@ function deriveSchema(jsonObject) {
     return schema;
 }
 
-function getFiles(dir, files_ = []) {
-    const files = fs.readdirSync(dir);
-    for (const i in files) {
-        const name = path.join(dir, files[i]);
-        if (fs.statSync(name).isDirectory()) {
-            if (files[i] !== 'node_modules') {
-                getFiles(name, files_);  // Recurse into subdirectories, excluding node_modules
-            }
-        } else {
-            // Check if the file is package-lock.json and skip it
-            if (!name.endsWith('package-lock.json')) {
-                files_.push(name);
-            }
-        }
+
+async function fetchRepoMetadata(owner, repo) {
+    const url = `https://api.github.com/repos/${owner}/${repo}`;
+    try {
+        const response = await axios.get(url);
+        return {
+            name: response.data.name,
+            description: response.data.description,
+            demoLink: response.data.homepage || "No demo link provided"
+        };
+    } catch (error) {
+        console.error('Error fetching repository metadata:', error);
+        return null;
     }
-    return files_;
 }
 
-function getFileType(file) {
-    const ext = path.extname(file).toLowerCase();
-    switch (ext) {
-        case '.js':
-        case '.jsx':
-        case '.ts':
-        case '.tsx':
-            return "JavaScript/TypeScript";
-        case '.json':
-            return "JSON";
-        case '.html':
-            return "HTML";
-        case '.css':
-            return "CSS";
-        case '.md':
-            return "Markdown";
-        default:
-            return "Unknown";
+async function fetchFiles(owner, repo, path = '') {
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    try {
+        const response = await axios.get(url);
+        let files = [];
+        for (const item of response.data) {
+            if (item.type === 'file') {
+                files.push({
+                    path: item.path,
+                    download_url: item.download_url
+                });
+            } else if (item.type === 'dir') {
+                const moreFiles = await fetchFiles(owner, repo, item.path);
+                files = files.concat(moreFiles);
+            }
+        }
+        return files;
+    } catch (error) {
+        console.error('Error fetching repository files:', error);
+        return [];
     }
 }
 
@@ -199,11 +216,46 @@ function stringifySafe(obj) {
     });
 }
 
-// Example usage
-const YOUR_DIRECTORY = './test';
-generateAST(YOUR_DIRECTORY)
-    .then(asts => {
-        fs.writeFileSync('asts.json', stringifySafe(asts), 'utf8');
-        console.log("ASTs and DOMs have been written to asts.json");
-    })
-    .catch(err => console.error(err));
+async function generateASTsForRepo(owner, repo) {
+    const metadata = await fetchRepoMetadata(owner, repo);
+    const files = await fetchFiles(owner, repo);
+    const asts = [];
+
+    for (const file of files) {
+        const response = await axios.get(file.download_url);
+        const fileContent = response.data;
+        const fileType = getFileType(file.path);
+        if (fileType !== "Media") {  // Check if it's not a video before processing
+            const ast = await generateAST(file.path, fileContent);
+            const summary = await summarizeFileOpenAI(file.path, fileContent);
+            asts.push({
+                file: file.path,
+                type: fileType,
+                ast: ast,
+                summary: summary,
+                sourceCode: JSON.stringify(fileContent) // Optionally, include or exclude source code
+            });
+        }
+    }
+
+    const repoAST = {
+        metadata: metadata,
+        files: asts
+    };
+
+    fs.writeFileSync(`${repo}-asts.json`, stringifySafe(repoAST), 'utf8');
+    console.log(`ASTs for ${repo} have been saved.`);
+}
+
+// Edit list of repos here:
+const repositories = [
+    { owner: 'cameronking4', name: 'langmarket' },
+    // Add more repositories as needed
+];
+
+// Execute the script for each repository
+repositories.forEach(repo => {
+    generateASTsForRepo(repo.owner, repo.name).catch(err => {
+        console.error(`Error processing repository ${repo.name}:`, err);
+    });
+});
