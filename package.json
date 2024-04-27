@@ -15,9 +15,11 @@
     "@babel/preset-typescript": "^7.24.1"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "fs": "^0.0.1-security",
     "htmlparser2": "^9.1.0",
     "marked": "^12.0.2",
+    "openai": "^4.38.5",
     "path": "^0.12.7",
     "postcss": "^8.4.38"
   }
