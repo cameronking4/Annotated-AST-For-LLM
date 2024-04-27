@@ -1,4 +1,4 @@
-# Documentation for AST for LLM
+# Proof of Concept: Annotated AST for the purposes of LLM code repository context
 
 `yarn install`
 
