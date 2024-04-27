@@ -60,34 +60,34 @@ async function generateAST(directory) {
     const asts = [];
 
     for (const file of files) {
-        const code = fs.readFileSync(file, 'utf8');
+        const code = fs.readFileSync(file, 'utf8');  // Read file content here to use later
         try {
             if (file.endsWith('.js') || file.endsWith('.jsx') || file.endsWith('.ts') || file.endsWith('.tsx')) {
                 const ast = await babel.parseAsync(code, {
                     ...babelConfig,
                     filename: file
                 });
-                asts.push({ file, type: "JavaScript/Typescript", ast });
+                asts.push({ file, type: "JavaScript/TypeScript", ast, sourceCode: code });
             } else if (file.endsWith('.json')) {
                 const ast = parseJSON(file, code);
-                asts.push({ file, type: "JSON", ast});
+                asts.push({ file, type: "JSON", ast, sourceCode: code });
             } else if (file.endsWith('.html')) {
                 const dom = htmlparser2.parseDocument(code);
-                asts.push({ file, type: "HTML", dom });
+                asts.push({ file, type: "HTML", dom, sourceCode: code });
             } else if (file.endsWith('.css')) {
                 const cssAst = postcss.parse(code);
-                asts.push({ file, type: "CSS", cssAst });
+                asts.push({ file, type: "CSS", cssAst, sourceCode: code });
             } else if (file.endsWith('.md')) {
                 const html = marked(code); // Convert Markdown to HTML
                 const dom = htmlparser2.parseDocument(html); // Parse HTML to DOM
-                asts.push({ file, type: "Markdown", dom });
+                asts.push({ file, type: "Markdown", dom, sourceCode: code });
             } else {
                 console.log(`Skipping unsupported file type: ${file}`);
-                asts.push({ file, type: "Other", skipped: true, reason: "Unsupported file type" });
+                asts.push({ file, type: "Other", skipped: true, reason: "Unsupported file type", sourceCode: code });
             }
         } catch (error) {
             console.error(`Error processing ${file}: ${error}`);
-            asts.push({ file, type: "Error", error: error.message });
+            asts.push({ file, type: "Error", error: error.message, sourceCode: code });
         }
     }
 

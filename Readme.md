@@ -1,14 +1,29 @@
-Explanation of Packages:
-@babel/core: The core of Babel, necessary for its operations.
-@babel/preset-env: Babel preset that compiles ES2015+ down to ES5 by automatically determining the Babel plugins you need based on your targeted environments.
-@babel/preset-react: Provides Babel support for JSX used in React applications.
-@babel/preset-typescript: Allows Babel to parse and transform TypeScript files.
-@babel/plugin-syntax-dynamic-import: Allows parsing of dynamic imports in JavaScript, which is useful for code splitting applications.
-@babel/plugin-proposal-class-properties: Enables support for the class properties proposal in JavaScript.
-@babel/plugin-proposal-private-methods: Allows Babel to parse and transform private methods in JavaScript classes.
-@babel/plugin-proposal-nullish-coalescing-operator: Enables support for the nullish coalescing operator (??) in JavaScript.
-@babel/plugin-proposal-optional-chaining: Allows Babel to parse and transform optional chaining operators (?.) in JavaScript.
-postcss: A tool for transforming CSS with JavaScript.
-htmlparser2: A fast HTML parser with a forgiving HTML5 parser.
-marked: A markdown parser and compiler built for speed.
-These installations will set you up with a robust environment capable of handling a variety of file types and syntaxes for your project.
+# Documentation for AST for LLM
+
+## Overview
+This document outlines the structure and script to generate a custom Abstract Syntax Tree (AST) for a given JavaScript / Typescript repository - for the purposes of sharing repo context with LLM. This custom AST provides a detailed representation of the files, their dependencies, and metadata, which is crucial for analysis and manipulation of the codebase for the purposes of Langchain Agent / OpenAI assistant vector memory. This is a scalable approach for sharing repo knowledge for an LLM as a single JSON file to light up "chat with Github" scenarios quickly.
+
+## AST Structure
+The AST is structured in a nested JSON format, where each node represents a file or a module with its specific properties:
+
+- **file**: The path to the file or module.
+- **type**: The type of the file (e.g., JSON, JavaScript).
+- **ast**: A recursive breakdown of the file’s contents, including metadata such as versions, dependencies, and other relevant details.
+
+Each node may contain the following attributes:
+
+- **name**: The name of the package or module.
+- **version**: The version number.
+- **lockfileVersion**: Specific to npm lock files, indicating the lockfile version.
+- **requires**: Boolean indicating whether the module requires other modules.
+- **dependencies**: An object listing dependencies, structured similarly to the parent object.
+
+## Usage
+### Analysis
+The AST can be used to analyze the structure of the project, including dependency analysis, license compliance checks, and upgrade recommendations. This helps in maintaining the health and security of the project.
+
+### Tool Integration
+The AST can be integrated with tools for:
+- **Static analysis**: Analyze code quality, security vulnerabilities, and coding standards compliance.
+- **Dependency management**: Tools that automate dependency upgrades, ensuring that all dependencies are up to date and secure.
+- **Custom scripts**: Write scripts that traverse the AST to automate specific tasks such as refactoring or identifying unused code.
