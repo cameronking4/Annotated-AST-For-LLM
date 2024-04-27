@@ -1,5 +1,9 @@
 # Documentation for AST for LLM
 
+`yarn install`
+
+`node index.js`
+
 ## Overview
 This document outlines the structure and script to generate a custom Abstract Syntax Tree (AST) for a given JavaScript / Typescript repository - for the purposes of sharing repo context with LLM. This custom AST provides a detailed representation of the files, their dependencies, and metadata, which is crucial for analysis and manipulation of the codebase for the purposes of Langchain Agent / OpenAI assistant vector memory. This is a scalable approach for sharing repo knowledge for an LLM as a single JSON file to light up "chat with Github" scenarios quickly.
 
