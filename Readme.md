@@ -1,4 +1,4 @@
-# Annotated AST for the purposes of LLM code repository context
+# Proof of Concept: An Annotated AST for the purposes of providing LLM full context of code repository in single file
 ## Try POC
 Use `main` branch if you're looking to generate an AI annotated AST for a local repository. Switch to `from-github` branch if you want to process an array of github repositories. 
 
