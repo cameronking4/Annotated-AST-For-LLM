@@ -90,4 +90,29 @@ async function testPOST() {
   }
 }
 
+
+async function testPOST2() {
+  const url = 'http://localhost:5000/files-json';
+  const bodyData = {
+    owner: "cameronking4", 
+    repo: "nextjs-ai-page-generator",
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(bodyData)
+    });
+
+    const data = await response.json();
+    console.log('Response:', data);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
 testPOST();
+testPOST2();

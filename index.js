@@ -317,7 +317,7 @@ async function createCodesandbox(code) {
                             'redux-thunk': 'latest', // Middleware for Redux asynchronous actions
                             'styled-components': 'latest', // For CSS in JS
                             'react-icons': 'latest', // A set of free MIT-licensed high-quality SVG icons
-                            lodash: 'latest', // A modern JavaScript utility library delivering modularity, performance, & extras
+                            lodash: 'latest', // A modern Java`Script utility library delivering modularity, performance, & extras
                             moment: 'latest', // Parse, validate, manipulate, and display dates and times in JavaScript
                             'react-query': 'latest', // Hooks for fetching, caching and updating asynchronous data in React
                             'react-toastify': 'latest', // For adding notifications to your app
@@ -380,6 +380,26 @@ function generateIframeData(sandbox_id) {
     return [url, preview];
 }
 
+async function createFilesJson(owner, repo) {
+    const files = await fetchFiles(owner, repo);  // Reusing your existing function to fetch files
+    const filesJson = {};
+
+    for (const file of files) {
+        if (file.download_url) {  // Check if there's a URL from which to download the file content
+            try {
+                const response = await axios.get(file.download_url);
+                filesJson[file.path] = { content: response.data };
+            } catch (error) {
+                console.error(`Failed to download file: ${file.path}`, error);
+                // Optionally handle the error by setting a specific error message or skipping the file
+                filesJson[file.path] = { error: `Failed to download file: ${error.message}` };
+            }
+        }
+    }
+
+    return filesJson;
+}
+
 
 app.use((err, req, res, next) => {
     console.error(err);
@@ -417,6 +437,17 @@ app.post('/create-sandbox', async (req, res) => {
         res.json(iframeData);
     } catch (error) {
         res.status(500).send('Failed to create CodeSandbox');
+    }
+});
+
+app.post('/files-json', async (req, res) => {
+    const { owner, repo } = req.body;
+    try {
+        const filesJson = await createFilesJson(owner, repo);
+        res.json(filesJson);
+    } catch (error) {
+        console.error('Failed to create files JSON:', error);
+        res.status(500).send('Failed to create files JSON');
     }
 });
 
