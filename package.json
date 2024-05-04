@@ -1,0 +1,28 @@
+{
+	"name": "nodejs-sandbox",
+	"version": "1.0.0",
+	"description": "Node.js example server starter project",
+	"license": "MIT",
+	"main": "index.ts",
+	"keywords": [],
+	"author": "Ives van Hoorne",
+	"dependencies": {
+		"@babel/core": "^7.24.5",
+		"axios": "^1.6.8",
+		"body-parser": "^1.20.2",
+		"codesandbox": "^2.2.3",
+		"cors": "^2.8.5",
+		"dotenv": "^16.4.5",
+		"express": "^4.19.2",
+		"fs": "0.0.1-security",
+		"htmlparser2": "^9.1.0",
+		"marked": "^12.0.2",
+		"nodemon": "^3.1.0",
+		"openai": "^4.40.0",
+		"path": "^0.12.7",
+		"postcss": "^8.4.38"
+	},
+	"scripts": {
+		"start": "nodemon index.js"
+	}
+}

@@ -7,7 +7,19 @@ const marked = require("marked");
 const axios = require('axios');
 const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+
 dotenv.config();
+
+const PORT = process.env.PORT || 5000;
+const app = express();
+
+app.set("port", PORT);
+app.use(cors());
+app.use(bodyParser.json());
+
 
 // Babel configuration for parsing JavaScript/TypeScript
 const babelConfig = {
@@ -247,15 +259,167 @@ async function generateASTsForRepo(owner, repo) {
     console.log(`ASTs for ${repo} have been saved.`);
 }
 
-// Edit list of repos here:
-const repositories = [
-    { owner: 'cameronking4', name: 'langmarket' },
-    // Add more repositories as needed
-];
+const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://unpkg.com/@tailwindcss/ui/dist/tailwind-ui.min.css" rel="stylesheet">
+    <title>Sketch2App</title>
+</head>
+<body>
+    <div id="root"></div> <!-- React will attach to this div -->
+    
+    <!-- React and ReactDOM scripts, replace "latest" with specific versions as needed -->
+    <script src="https://unpkg.com/react@latest/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@latest/umd/react-dom.production.min.js"></script>
 
-// Execute the script for each repository
-repositories.forEach(repo => {
-    generateASTsForRepo(repo.owner, repo.name).catch(err => {
-        console.error(`Error processing repository ${repo.name}:`, err);
+    <!-- Your compiled JavaScript bundle -->
+    <script src="app.js"></script> <!-- Ensure the src matches your JavaScript output file -->
+</body>
+</html>`;
+
+const css = `@tailwind base;
+@tailwind components;
+@tailwind utilities;`;
+
+async function createCodesandbox(code) {
+    const response = await fetch("https://codesandbox.io/api/v1/sandboxes/define?json=1", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        },
+        body: JSON.stringify({
+            externalResources: ['https://unpkg.com/@tailwindcss/ui/dist/tailwind-ui.min.css'],
+            files: {
+                "/index.css": {
+                    content: css,
+                },
+                "package.json": {
+                    content: {
+                        dependencies: {
+                            react: 'latest',
+                            'react-dom': 'latest',
+                            'react-dropzone': 'latest',
+                            'react-router-dom': 'latest',
+                            'react-scripts': 'latest',
+                            tailwindcss: 'latest',
+                            postcss: 'latest',
+                            autoprefixer: 'latest',
+                            'recharts': 'latest',
+                            'lucide-react': 'latest',
+                            'react-confetti': 'latest',
+                            'react-swipe-card': 'latest',
+                            axios: 'latest', // For making HTTP requests
+                            redux: 'latest', // For state management
+                            'react-redux': 'latest', // React bindings for Redux
+                            'redux-thunk': 'latest', // Middleware for Redux asynchronous actions
+                            'styled-components': 'latest', // For CSS in JS
+                            'react-icons': 'latest', // A set of free MIT-licensed high-quality SVG icons
+                            lodash: 'latest', // A modern JavaScript utility library delivering modularity, performance, & extras
+                            moment: 'latest', // Parse, validate, manipulate, and display dates and times in JavaScript
+                            'react-query': 'latest', // Hooks for fetching, caching and updating asynchronous data in React
+                            'react-toastify': 'latest', // For adding notifications to your app
+                            'react-helmet': 'latest' // A document head manager for React
+                        },
+                    },
+                },
+                "/README.md": {
+                    content: `# [Sketch-2-App](https://www.sketch2app.io/)
+              ## Use GPT4v to generate web app code (CRA + Tailwind)
+              Use React to generate a web app with Tailwind CSS. It will generate code and a sandbox to preview the app within seconds of capturing your wireframe/sketch
+              
+              [![Sketch2Code](https://markdown-videos-api.jorgenkh.no/url?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D1VC_a0JP7TM)](https://www.youtube.com/watch?v=1VC_a0JP7TM)
+              
+              Run the application in the command line and it will be available at \`http://localhost:3000\`. 
+              \`\`\`bash
+              npm install && npm start
+              \`\`\``
+                },
+                "App.js": {
+                    content: code,
+                },
+                "/index.js": {
+                    content: `import React from 'react';
+                    import ReactDOM from 'react-dom/client';
+                    import './index.css';
+                    import App from './App';
+              
+                    const root = ReactDOM.createRoot(document.getElementById('root'));
+                    root.render(
+                      <React.StrictMode>
+                        <App />
+                      </React.StrictMode>
+                    );`
+                },
+                "index.html": {
+                    content: html,
+                },
+                "/tailwind.config.js": {
+                    content: `module.exports = {
+                      content: ["./src/**/*.{js,jsx,ts,tsx}"],
+                      theme: {
+                        extend: {},
+                      },
+                      plugins: [],
+                    };
+                `}
+            },
+        }),
     });
+    const data = await response.json();
+    return generateIframeData(data.sandbox_id);
+}
+
+// Generate iframe data from a sandbox ID
+function generateIframeData(sandbox_id) {
+    const url = `https://codesandbox.io/embed/${sandbox_id}?fontsize=11&view=preview&hidenavigation=1&theme=dark`;
+    const preview = `https://${sandbox_id}.csb.app/`;
+    console.log(sandbox_id, preview);
+    return [url, preview];
+}
+
+
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(err.status || 500);
+    res.json({
+      error: {
+        message: err.message,
+      },
+    });
+  });
+
+app.get("/", (req, res) => {
+  res.send("Working smarter not harder!");
+});
+
+app.post('/ast', async (req, res) => {
+    try {
+        const owner = req.body.owner;
+        const repo = req.body.repo;
+        const AST = await generateASTsForRepo(owner, repo);
+        res.json(AST);
+    }
+    catch (error) {
+        console.error('Error generating ASTs:', error);
+        res.status(500).send('Error generating ASTs');
+    }
+    res.send('Hello World!');
+});
+
+// Endpoint to create and return iframe data
+app.post('/create-sandbox', async (req, res) => {
+    const { code } = req.body;
+    try {
+        const iframeData = await createCodesandbox(code);
+        res.json(iframeData);
+    } catch (error) {
+        res.status(500).send('Failed to create CodeSandbox');
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
