@@ -283,7 +283,7 @@ const css = `@tailwind base;
 @tailwind components;
 @tailwind utilities;`;
 
-async function createCodesandbox(code) {
+async function createCodesandbox_v1(code) {
     const response = await fetch("https://codesandbox.io/api/v1/sandboxes/define?json=1", {
         method: "POST",
         headers: {
@@ -372,6 +372,29 @@ async function createCodesandbox(code) {
     return generateIframeData(data.sandbox_id);
 }
 
+async function createCodesandbox_v2(files) {
+    console.log(files);
+    const response = await fetch("https://codesandbox.io/api/v1/sandboxes/define?json=1", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        },
+        body: JSON.stringify({
+            externalResources: ['https://unpkg.com/@tailwindcss/ui/dist/tailwind-ui.min.css'],
+            files: files,
+        }),
+    });
+   
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return generateIframeData(data.sandbox_id);
+}
+
+
 // Generate iframe data from a sandbox ID
 function generateIframeData(sandbox_id) {
     const url = `https://codesandbox.io/embed/${sandbox_id}?fontsize=11&view=preview&hidenavigation=1&theme=dark`;
@@ -396,7 +419,7 @@ async function createFilesJson(owner, repo) {
             }
         }
     }
-
+    console.log(JSON.stringify(filesJson, null, 2));
     return filesJson;
 }
 
@@ -430,13 +453,54 @@ app.post('/ast', async (req, res) => {
 });
 
 // Endpoint to create and return iframe data
-app.post('/create-sandbox', async (req, res) => {
+app.post('/create-sandbox-v1', async (req, res) => {
     const { code } = req.body;
     try {
-        const iframeData = await createCodesandbox(code);
+        const iframeData = await createCodesandbox_v1(code);
         res.json(iframeData);
     } catch (error) {
         res.status(500).send('Failed to create CodeSandbox');
+    }
+});
+
+// Endpoint to create a CodeSandbox with optional file overrides from a GitHub repository
+app.post('/create-sandbox-with-overrides', async (req, res) => {
+    const { owner, repo, filesOverride } = req.body;
+    try {
+        // Fetch the files from GitHub
+        let filesJson = await createFilesJson(owner, repo);
+
+        // Log the fetched files for debugging
+        console.log("Files fetched from GitHub");
+
+        // Apply any overrides provided in the request
+        if (filesOverride && typeof JSON.parse(filesOverride) === 'object') {
+            for (const filePath in JSON.parse(filesOverride)) {
+                console.log(`Checking for override in ${filePath}`);
+                if (filesJson.hasOwnProperty(filePath) && typeof JSON.parse(filesOverride)[filePath] === 'string') {
+                    console.log(`Overriding ${filePath} with new content.`);
+                    filesJson[filePath].content = JSON.parse(filesOverride)[filePath];
+                } else {
+                    console.log(`File ${filePath} not found in the repository, skipping override.`);
+                }
+            }
+        }
+
+        // Format the files correctly before sending to createCodesandbox
+        let formattedFiles = {};
+        Object.keys(filesJson).forEach(path => {
+            formattedFiles[path] = { content: filesJson[path].content };
+        });
+
+        // Log the formatted files for debugging
+        console.log("Formatted Files for CodeSandbox:", formattedFiles);
+
+        // Create the CodeSandbox with the potentially modified files
+        const iframeData = await createCodesandbox_v2({ files: formattedFiles });
+        res.json(iframeData);
+    } catch (error) {
+        console.error('Failed to create CodeSandbox with overrides:', error);
+        res.status(500).send('Failed to create CodeSandbox with overrides');
     }
 });
 

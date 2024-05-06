@@ -114,5 +114,32 @@ async function testPOST2() {
   }
 }
 
-testPOST();
-testPOST2();
+async function testPOST3() {
+  const url = 'http://localhost:5000/create-sandbox-with-overrides';
+  const bodyData = {
+    owner: "cameronking4", 
+    repo: "crownFashion",
+    fileOverride: {
+      "src/App.js": "hello world",
+    }
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(bodyData)
+    });
+
+    const data = await response.json();
+    console.log('Response:', data);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+// testPOST();
+// testPOST2();
+testPOST3();
