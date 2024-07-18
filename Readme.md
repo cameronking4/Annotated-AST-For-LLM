@@ -1,4 +1,6 @@
 # Greptile Clone: An Annotated AST for the purposes of providing LLM full context of code repository in single file
+Achieve the functionality of Greptile by supplying ChatGPT with a generated AST file that represents your Github Repo for context. Use in a single chat or within a GPT or assistant, Vector store etc. Note the different branches.
+
 ## Try POC
 Use `main` branch if you're looking to generate an AI annotated AST for a local repository. Switch to `from-github` branch if you want to process an array of github repositories. 
 
