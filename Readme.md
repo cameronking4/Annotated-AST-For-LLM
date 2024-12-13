@@ -8,6 +8,8 @@ Use `main` branch if you're looking to generate an AI annotated AST for a local 
 
 `node index.js`
 
+If you're looking for an API or something to use in production, here is the latest implementation you can deploy to DigitalOcean or any other CSP that supports long standing operations: [GreptileClone](https://github.com/cameronking4/GreptileClone)
+
 
 
 ## Overview
